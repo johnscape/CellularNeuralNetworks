@@ -1,6 +1,6 @@
 from cnn import CellularNetwork, BoundaryTypes, CellToImage
 import cv2
-
+import numpy as np
 
 # TASK 1
 def DoTaskOne(saveImg=False):
@@ -10,15 +10,15 @@ def DoTaskOne(saveImg=False):
     cnn.SetInput("images/task_1.bmp")
     cnn.SetState("images/task_1.bmp")
 
-    cnn.SetTimestep(0.1)
-    cnn.SetMaxTime(10)
+    cnn.SetTimeStep(0.1)
+    cnn.SetSimTime(10)
 
     cnn.Boundary = BoundaryTypes.CONSTANT
     cnn.ConstantBoundary = 0
 
     cnn.SetA([[0, 0, 0], [0, 2.0, 0], [0, 0, 0]])
     cnn.SetB([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
-    cnn.SetBias(-((2 * 0.6) - 1))  # -0.2
+    cnn.SetBias(-((2 * threshold) - 1))  # -0.2
 
     print("Starting simulation for Task 1")
     img = cnn.Simulate()
@@ -36,8 +36,8 @@ def DoTaskTwo(saveImg=False):
     cnn.SetInput("images/task_2.bmp")
     cnn.SetState("images/task_2.bmp")
 
-    cnn.SetTimestep(0.1)
-    cnn.SetMaxTime(10)
+    cnn.SetTimeStep(0.1)
+    cnn.SetSimTime(10)
 
     cnn.Boundary = BoundaryTypes.CONSTANT
     cnn.ConstantBoundary = 0
@@ -56,13 +56,14 @@ def DoTaskTwo(saveImg=False):
     if saveImg:
         cv2.imwrite("task_2_out.bmp", cvImg)
 
+
 def DoTaskThree(saveImg=False):
     cnn = CellularNetwork()
     cnn.SetInput("images/task_3.bmp")
-    cnn.SetState("images/task_3.bmp")
+    cnn.SetState(np.ones((100, 100)))
 
-    cnn.SetTimestep(0.01)
-    cnn.SetMaxTime(10)
+    cnn.SetTimeStep(1)
+    cnn.SetSimTime(100)
 
     cnn.Boundary = BoundaryTypes.CONSTANT
     cnn.ConstantBoundary = 0
@@ -82,6 +83,6 @@ def DoTaskThree(saveImg=False):
         cv2.imwrite("task_3_out.bmp", cvImg)
 
 
-#DoTaskOne()
-#DoTaskTwo(True)
+# DoTaskOne()
+# DoTaskTwo(True)
 #DoTaskThree(True)
