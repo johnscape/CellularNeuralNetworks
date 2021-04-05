@@ -25,32 +25,35 @@ def test_cell_to_image(inp, expected):
     assert np.array_equal(r, expected) is True
 
 
-def test_standard_cnnnonliearity():
-    assert StandardCNNNonliearity(15) == 1
+def test_standard_cnnnonlinearity():
+    inp = np.zeros((3, 3))
+    exp = np.zeros((3, 3))
 
+    inp[0, 0] = -1
+    inp[0, 1] = 1
+    inp[0, 2] = 5
 
-def test_get_boundary_value():
-    CNN = CellularNetwork()
-    CNN.Boundary = BoundaryTypes.PERIODIC
-    CNN.Input = np.zeros((5, 5))
-    CNN.Output = np.zeros((5, 5))
-    CNN.State = np.zeros((5, 5))
+    exp[0, 0] = -1
+    exp[0, 1] = 1
+    exp[0, 2] = 1
 
-    for x in range(5):
-        for y in range(5):
-            CNN.Input[x, y] = (x + 1) * (y + 1)
+    inp[1, 0] = 0
+    inp[1, 1] = 0.2
+    inp[1, 2] = -0.2
 
-    expected = np.asarray([
-        [25, 5, 10],
-        [5, 1, 2],
-        [10, 2, 4]
-    ])
+    exp[1, 0] = 0
+    exp[1, 1] = 0.2
+    exp[1, 2] = -0.2
 
-    b = np.zeros((3, 3))
-    s_x = 0
-    s_y = 0
-    for x in range(-1, 2):
-        for y in range(-1, 2):
-            b[x + 1, y + 1] = CNN.GetBoundaryValue(s_x + x, s_y + y)
+    inp[2, 0] = -5
+    inp[2, 1] = 2.2
+    inp[2, 2] = -1.1
 
-    assert np.array_equal(b, expected) is True
+    exp[2, 0] = -1
+    exp[2, 1] = 1
+    exp[2, 2] = -1
+
+    ans = StandardCNNNonlinearity(inp)
+
+    assert np.array_equal(ans, exp) == True
+
