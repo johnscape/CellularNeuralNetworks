@@ -1,155 +1,191 @@
 import numpy as np
 import cv2
-import copy
-from enum import Enum
 
 
-def ImageToCell(image: np.array) -> np.array:  # 0-255 -> -1 - 1
-    return (-1)*((image.astype(np.float))/127.5-1.0)
+def ImageToCell(image):
+    image = (-1) * ((image.astype(np.float)) / 128.0 - 1.0)
+    return image
 
 
-def CellToImage(cell: np.array) -> np.array:
-    image = ((cell * -1) + 1.0) * 127.5
-    return image.astype(np.uint8)
+def CellToImage(cell):
+    cell = ((cell * -1) + 1.0) * 127.5
+    return cell.astype(np.uint8)
 
 
-def StandardCNNNonliearity(x: list) -> list:
-    r = copy.deepcopy(x)
-    for a in range(x.shape[0]):
-        for b in range(x.shape[1]):
-            if r[a, b] < -1: r[a, b] = -1
-            elif r[a, b] > 1: r[a, b] = 1
-    return r
+def StandardCNNNonliearity(x):
+    # this function implements the standard CNN nonlinearity, all values are saturated below -1 and above 1
+    back = x
+    back[x < -1] = -1
+    back[x > 1] = 1
+    return back
 
 
-class BoundaryTypes(Enum):
-    ZERO_FLUX = 0,
-    CONSTANT = 1,
-    PERIODIC = 2
-
-
-class CellularNetwork:
+class CellSim():
     def __init__(self):
         self.Input = []
         self.State = []
-        self.Output = []
         self.A = np.zeros((3, 3))
         self.B = np.zeros((3, 3))
         self.Z = 0
         self.SimTime = 1
         self.TimeStep = 0.1
-        self.NonlinearFunction = StandardCNNNonliearity
-        self.Boundary = BoundaryTypes.ZERO_FLUX
-        self.ConstantBoundaty = 0
+        self.OutputNonlin = StandardCNNNonliearity
+        self.Boundary = 'Constant'
+        self.BoundValue = 0
 
     def GetOutput(self):
         return self.Output
 
-    def SetTimestep(self, timeStep: float):
-        self.TimeStep = timeStep
+    def SetTimeStep(self, Ts):
+        # this function sets the A template of the simulator
+        # check if it is an N times N matrix - later on these could be functions
+        self.TimeStep = Ts
 
-    def SetMaxTime(self, time: float):
-        self.SimTime = time
+    def SetSimTime(self, T):
+        # this function sets the A template of the simulator
+        # check if it is an N times N matrix - later on these could be functions
+        self.SimTime = T
 
-    def SetInput(self, fileName: str):
-        readImg = cv2.imread(fileName)
-        readImg = cv2.cvtColor(readImg, cv2.COLOR_BGR2GRAY)
-        self.Input = ImageToCell(readImg)
+    def SetInput(self, In):
+        # this function sets the A template of the simulator
+        # check if it is an N times N matrix - later on these could be functions
+        # and convert image to CellNN domain
+        if isinstance(In, str):
+            img = ImageToCell(cv2.cvtColor(cv2.imread(In), cv2.COLOR_BGR2GRAY))
+        else:
+            img = In
+        self.Input = img
 
-    def SetState(self, fileName: str):
-        readImg = cv2.imread(fileName)
-        readImg = cv2.cvtColor(readImg, cv2.COLOR_BGR2GRAY)
-        self.State = ImageToCell(readImg)
+    def SetState(self, St):
+        # this function sets the A template of the simulator
+        # check if it is an N times N matrix - later on these could be functions
+        if isinstance(St, str):
+            img = ImageToCell(cv2.cvtColor(cv2.imread(St), cv2.COLOR_BGR2GRAY))
+        else:
+            img = St
+        self.State = img
 
-    def SetBias(self, bias: float):
-        self.Z = bias
+    def SetZ(self, z):
+        self.SetBias(z)
 
-    def SetA(self, a: np.array):
+    def SetBias(self, z):
+        self.Z = z
+
+    def SetA(self, a):
+        self.SetATemplate(a)
+
+    def SetATemplate(self, a):
+        # this function sets the A template of the simulator
+        # check if it is an N times N matrix - later on these could be functions
         self.A = a
 
-    def SetB(self, b: np.array):
+    def SetB(self, a):
+        self.SetBTemplate(a)
+
+    def SetBTemplate(self, b):
+        # this function sets the A template of the simulator
+        # check if it is an N times N matrix - later on these could be functions
         self.B = b
 
-    def Euler(self, y0, startTime, endTime, timeStep) -> np.array:
-        t, y = startTime, y0
-        y = y.astype(np.float64)
-        while t <= endTime:
-            t += timeStep
-            y += timeStep * self.CellFunction(t, y)
+    def Euler(self, f, y0, StartTime, EndTime, h):
+        t, y = StartTime, y0
+        while t <= EndTime:
+            t += h
+            y += h * f(t, y)
         return y
 
-    def __Checkup(self):
-        if len(self.Input) > 0 and len(self.State) > 0:
-            return
-        if len(self.Input) == 0:
-            if len(self.State) == 0:
-                raise Exception("Input and state is empty!")
-            else:
-                self.Input = np.zeros(self.State.shape)
-        elif len(self.State) == 0:
-            self.State = np.zeros(self.Input.shape)
-
     def Simulate(self):
-        self.__Checkup()
-        r = self.Euler(self.State.flatten(), 0, self.SimTime, 0.1)
-        x = self.State.shape[0]
-        y = self.State.shape[1]
+        self.Input = self.Input.astype(np.float64)
+        self.State = self.State.astype(np.float64)
+        Ret = self.Euler(self.cell_equation, self.State.flatten(), 0, self.SimTime, 0.1)
+        SizeX = self.State.shape[0]
+        SizeY = self.State.shape[1]
+        OutImg = self.OutputNonlin(np.reshape(Ret, [SizeX, SizeY]))
 
-        image = self.NonlinearFunction(np.reshape(r, [x, y]))
-        return image
+        # r = ode(self.cell_equation).set_integrator('vode', method='bdf', with_jacobian=False)
+        # r = ode(self.cell_equation).set_integrator('dopri')
+        # r.set_initial_value(self.State.flatten(), 0)
+        # start= time.time()
+        # while r.successful() and r.t < self.SimTime:
+        #   r.integrate(r.t+self.TimeStep)
+        #   print(r.t)
+        # end= time.time()
+        # print(end-start)
+        # SizeX=self.State.shape[0]
+        # SizeY=self.State.shape[1]
+        # OutImg=self.OutputNonlin(np.reshape(r.y,[SizeX,SizeY]))
+        return OutImg
 
-    def CellFunction(self, t: float, X: np.array) -> np.array:
-        x = self.State.shape[0]
-        y = self.State.shape[1]
+    def cell_equation(self, t, X):
+        # This function impelment the differential equation determining the standard cnn cell:
+        # xdot = -x + Ay + Bu + z
+        # the parameters of the CNN array (templates) are stored in P
 
-        input_data = np.reshape(X, [x, y])
-        dx = np.zeros((x, y))
+        # reshape the 1xN input for the size of the image -ode solvers can only deal with vectors but code is more understandable if    we use arrays
+        SizeX = self.State.shape[0]
+        SizeY = self.State.shape[1]
+        x = np.reshape(X, [SizeX, SizeY])
 
-        self.Output = self.NonlinearFunction(input_data)
+        # we will return the derivative in this array
+        dx = np.zeros((SizeX, SizeY))
 
-        for a in range(x):
-            for b in range(y):
-                active_input_area, active_output_area = self.__FindActiveAreas(a,b)
-                BU = np.sum(np.multiply(self.B, active_input_area))
-                AY = np.sum(np.multiply(self.A, active_output_area))
-                dx[a, b] = -input_data[a, b] + AY + BU + self.Z
+        # go through all elements of the array
+        for a in range(SizeX):
+            for b in range(SizeY):
+                # if we are at the edge of the array, boundary conditions should be applied
+                if (a == 0) or (b == 0) or (a == (SizeX - 1)) or (b == (SizeY - 1)):
+                    inputregion = np.zeros((3, 3))
+                    stateregion = np.zeros((3, 3))
+                    # check the local region around the cell
+                    for c in range(-1, 2):
+                        for d in range(-1, 2):
+                            # check boundary conditions if we are at the edge of the array
+                            if (self.Boundary == 'Constant'):
+                                # constant boundary condition, virtual cells have fix values
+                                if (a + c < 0) | (b + d < 0) | (a + c > (SizeX - 1)) | (b + d > (SizeY - 1)):
+                                    inputregion[c + 1, d + 1] = self.BoundValue
+                                    stateregion[c + 1, d + 1] = self.BoundValue
+                                else:
+                                    inputregion[c + 1, d + 1] = self.Input[a + c, b + d]
+                                    stateregion[c + 1, d + 1] = x[a + c, b + d]
+                            elif self.Boundary == 'ZeroFlux':
+                                # zero-flux condition- virtual cells have the value of the closes real cell
+                                inda = a + c
+                                if a + c < 0:
+                                    inda = 0
+                                elif a + c > (SizeX - 1):
+                                    inda = SizeX - 1
+                                indb = b + d
+                                if b + d < 0:
+                                    indb = 0
+                                elif b + d > (SizeY - 1):
+                                    indb = SizeY - 1
+                                inputregion[c + 1, d + 1] = self.Input[inda, indb]
+                                stateregion[c + 1, d + 1] = x[inda, indb]
+                            elif self.Boundary == 'Periodic':
+                                # periodic condition- the value of the next real cell at the other edge of the array will be used
+                                inda = a + c
+                                if a + c < 0:
+                                    inda = SizeX - 1
+                                elif a + c > SizeX - 1:
+                                    inda = 0
+                                indb = b + d
+                                if b + d < 0:
+                                    indb = SizeY - 1
+                                elif b + d > SizeY - 1:
+                                    indb = 0
+                                inputregion[c + 1, d + 1] = P.Input[inda, indb]
+                                stateregion[c + 1, d + 1] = x[inda, indb]
 
-        dx = np.reshape(dx, [x * y])
+                else:
+                    # if we are not at the edge, just select the region, all cells are valid
+                    inputregion = self.Input[a - 1:a + 2, b - 1:b + 2]
+                    stateregion = x[a - 1:a + 2, b - 1:b + 2]
+
+                y = self.OutputNonlin(stateregion)
+                # calculate the derivative according to the equation
+                dx[a, b] = -x[a, b] + np.sum(np.multiply(self.A, y)) + np.sum(np.multiply(self.B, inputregion)) + self.Z
+        # reshape back to Nx1
+        dx = np.reshape(dx, [SizeX * SizeY])
 
         return dx
-
-    def __FindActiveAreas(self, a, b):
-        x = self.State.shape[0]
-        y = self.State.shape[1]
-        active_input_area = np.zeros((3, 3))
-        active_output_area = np.zeros((3, 3))
-        if a == 0 or b == 0 or a == x - 1 or b == y - 1:
-            for t_x in range(-1, 2):
-                for t_y in range(-1, 2):
-                    active_output_area[t_x + 1, t_y + 1] = self.GetBoundaryValue(a + t_x, b + t_y, True)
-                    active_input_area[t_x + 1, t_y + 1] = self.GetBoundaryValue(a + t_x, b + t_y)
-        else:
-            active_input_area = self.Input[(a - 1):(a + 2), (b - 1):(b + 2)]
-            active_output_area = self.Output[(a - 1):(a + 2), (b - 1):(b + 2)]
-        return active_input_area, active_output_area
-
-    def GetBoundaryValue(self, x, y, output=False):
-        if x < 0 or y < 0 or x >= self.State.shape[0] or y >= self.State.shape[1]:
-            if self.Boundary == BoundaryTypes.ZERO_FLUX:
-                return 0
-            elif self.Boundary == BoundaryTypes.CONSTANT:
-                return self.ConstantBoundaty
-            elif self.Boundary == BoundaryTypes.PERIODIC:
-                if x < 0: x += self.State.shape[0]
-                elif x >= self.State.shape[0]: x -= self.State.shape[0]
-
-                if y < 0: y += self.State.shape[1]
-                elif y >= self.State.shape[1]: y -= self.State.shape[1]
-
-                if output:
-                    return self.Output[x, y]
-                return self.Input[x, y]
-        else:
-            if output:
-                return self.Output[x, y]
-            return self.Input[x, y]

@@ -13,7 +13,8 @@ def DoTaskOne(saveImg=False):
     cnn.SetTimestep(0.1)
     cnn.SetMaxTime(10)
 
-    cnn.Boundary = BoundaryTypes.ZERO_FLUX
+    cnn.Boundary = BoundaryTypes.CONSTANT
+    cnn.ConstantBoundary = 0
 
     cnn.SetA([[0, 0, 0], [0, 2.0, 0], [0, 0, 0]])
     cnn.SetB([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
@@ -38,11 +39,12 @@ def DoTaskTwo(saveImg=False):
     cnn.SetTimestep(0.1)
     cnn.SetMaxTime(10)
 
-    cnn.Boundary = BoundaryTypes.ZERO_FLUX
+    cnn.Boundary = BoundaryTypes.CONSTANT
+    cnn.ConstantBoundary = 0
 
     cnn.SetA([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
     cnn.SetB([[0, 1.0, 0], [0, 1.0, 1.0], [0, 0, 0]])
-    cnn.SetBias(-2.0)  # -0.2
+    cnn.SetBias(-2.0)
 
     print("Starting simulation for Task 2")
     img = cnn.Simulate()
@@ -54,6 +56,32 @@ def DoTaskTwo(saveImg=False):
     if saveImg:
         cv2.imwrite("task_2_out.bmp", cvImg)
 
+def DoTaskThree(saveImg=False):
+    cnn = CellularNetwork()
+    cnn.SetInput("images/task_3.bmp")
+    cnn.SetState("images/task_3.bmp")
+
+    cnn.SetTimestep(0.01)
+    cnn.SetMaxTime(10)
+
+    cnn.Boundary = BoundaryTypes.CONSTANT
+    cnn.ConstantBoundary = 0
+
+    cnn.SetA([[0, 0, 0], [0, 2.0, 0], [0, 2.0, 0]])
+    cnn.SetB([[0, 0, 0], [0, 2.0, 0], [0, 0, 0]])
+    cnn.SetBias(0)
+
+    print("Starting simulation for Task 3")
+    img = cnn.Simulate()
+    print("Simulation finished! Showing image...")
+    cvImg = CellToImage(img)
+    cv2.imshow("ShadowUp", cvImg)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    if saveImg:
+        cv2.imwrite("task_3_out.bmp", cvImg)
+
 
 #DoTaskOne()
-DoTaskTwo()
+#DoTaskTwo(True)
+#DoTaskThree(True)
