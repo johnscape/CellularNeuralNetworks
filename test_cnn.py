@@ -57,3 +57,102 @@ def test_standard_cnnnonlinearity():
 
     assert np.array_equal(ans, exp) == True
 
+
+def test_find_active_regions_constant():
+    cnn = CellularNetwork()
+
+    cnn.Boundary = BoundaryTypes.CONSTANT
+    cnn.BoundValue = 1
+
+    inp = np.ones((5, 5)) * 2
+    state = np.ones((5, 5)) * 5
+
+    cnn.SetInput(inp)
+    cnn.SetState(state)
+
+    expected_input_area = np.asarray([
+        [1, 1, 1],
+        [1, 2, 2],
+        [1, 2, 2]
+    ])
+
+    expected_state_area = np.asarray([
+        [1, 1, 1],
+        [1, 5, 5],
+        [1, 5, 5]
+    ])
+
+    input_area, state_area = cnn.FindActiveRegions(0, 0, state)
+
+    assert np.array_equal(input_area, expected_input_area) and \
+           np.array_equal(state_area, expected_state_area)
+
+
+def test_find_active_regions_zero():
+    cnn = CellularNetwork()
+
+    cnn.Boundary = BoundaryTypes.ZERO_FLUX
+    cnn.BoundValue = 1
+
+    inp = np.ones((5, 5))
+    state = np.ones((5, 5))
+
+    for x in range(5):
+        for y in range(5):
+            inp[x, y] = (x + 1) * (y + 1)
+            state[x, y] = (x + 1) * (y + 1) + 2
+
+    cnn.SetInput(inp)
+    cnn.SetState(state)
+
+    expected_input_area = np.asarray([
+        [1, 1, 2],
+        [1, 1, 2],
+        [2, 2, 4]
+    ])
+
+    expected_state_area = np.asarray([
+        [3, 3, 4],
+        [3, 3, 4],
+        [4, 4, 6]
+    ])
+
+    input_area, state_area = cnn.FindActiveRegions(0, 0, state)
+
+    assert np.array_equal(input_area, expected_input_area) and \
+           np.array_equal(state_area, expected_state_area)
+
+
+def test_find_active_regions_periodic():
+    cnn = CellularNetwork()
+
+    cnn.Boundary = BoundaryTypes.PERIODIC
+    cnn.BoundValue = 1
+
+    inp = np.ones((5, 5))
+    state = np.ones((5, 5))
+
+    for x in range(5):
+        for y in range(5):
+            inp[x, y] = (x + 1) * (y + 1)
+            state[x, y] = (x + 1) * (y + 1) + 2
+
+    cnn.SetInput(inp)
+    cnn.SetState(state)
+
+    expected_input_area = np.asarray([
+        [25, 5, 10],
+        [5, 1, 2],
+        [10, 2, 4]
+    ])
+
+    expected_state_area = np.asarray([
+        [27, 7, 12],
+        [7, 3, 4],
+        [12, 4, 6]
+    ])
+
+    input_area, state_area = cnn.FindActiveRegions(0, 0, state)
+
+    assert np.array_equal(input_area, expected_input_area) and \
+           np.array_equal(state_area, expected_state_area)

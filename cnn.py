@@ -10,7 +10,7 @@ class BoundaryTypes(Enum):
 
 
 def ImageToCell(image):
-    image = (-1) * ((image.astype(np.float)) / 128.0 - 1.0)
+    image = (-1) * ((image.astype(np.float)) / 127.5 - 1.0)
     return image
 
 
@@ -106,51 +106,64 @@ class CellularNetwork:
 
         for a in range(SizeX):
             for b in range(SizeY):
-                if (a == 0) or (b == 0) or (a == (SizeX - 1)) or (b == (SizeY - 1)):
-                    inputregion = np.zeros((3, 3))
-                    stateregion = np.zeros((3, 3))
-                    for c in range(-1, 2):
-                        for d in range(-1, 2):
-                            if (self.Boundary == 'Constant'):
-                                if (a + c < 0) | (b + d < 0) | (a + c > (SizeX - 1)) | (b + d > (SizeY - 1)):
-                                    inputregion[c + 1, d + 1] = self.BoundValue
-                                    stateregion[c + 1, d + 1] = self.BoundValue
-                                else:
-                                    inputregion[c + 1, d + 1] = self.Input[a + c, b + d]
-                                    stateregion[c + 1, d + 1] = x[a + c, b + d]
-                            elif self.Boundary == 'ZeroFlux':
-                                inda = a + c
-                                if a + c < 0:
-                                    inda = 0
-                                elif a + c > (SizeX - 1):
-                                    inda = SizeX - 1
-                                indb = b + d
-                                if b + d < 0:
-                                    indb = 0
-                                elif b + d > (SizeY - 1):
-                                    indb = SizeY - 1
-                                inputregion[c + 1, d + 1] = self.Input[inda, indb]
-                                stateregion[c + 1, d + 1] = x[inda, indb]
-                            elif self.Boundary == 'Periodic':
-                                inda = a + c
-                                if a + c < 0:
-                                    inda = SizeX - 1
-                                elif a + c > SizeX - 1:
-                                    inda = 0
-                                indb = b + d
-                                if b + d < 0:
-                                    indb = SizeY - 1
-                                elif b + d > SizeY - 1:
-                                    indb = 0
-                                inputregion[c + 1, d + 1] = self.Input[inda, indb]
-                                stateregion[c + 1, d + 1] = x[inda, indb]
+                input_region, state_region = self.FindActiveRegions(a, b, x)
 
-                else:
-                    inputregion = self.Input[a - 1:a + 2, b - 1:b + 2]
-                    stateregion = x[a - 1:a + 2, b - 1:b + 2]
-
-                y = self.OutputNonlin(stateregion)
-                dx[a, b] = -x[a, b] + np.sum(np.multiply(self.A, y)) + np.sum(np.multiply(self.B, inputregion)) + self.Z
+                y = self.OutputNonlin(state_region)
+                AY = np.sum(np.multiply(self.A, y))
+                BU = np.sum(np.multiply(self.B, input_region))
+                dx[a, b] = -x[a, b] + AY + BU + self.Z
         dx = np.reshape(dx, [SizeX * SizeY])
 
         return dx
+
+    def FindActiveRegions(self, x, y, currentData):
+        input_region = np.zeros((3, 3))
+        state_region = np.zeros((3, 3))
+        if 0 < x < self.State.shape[0] - 1 and 0 < y < self.State.shape[1] - 1:
+            input_region = self.Input[x - 1:x + 2, y - 1:y + 2]
+            state_region = currentData[x - 1:x + 2, y - 1:y + 2]
+        else:
+            for i in range(-1, 2):
+                for ii in range(-1, 2):
+                    input_region[i + 1, ii + 1] = self.FindRealValues(x + i, y + ii, None)
+                    state_region[i + 1, ii + 1] = self.FindRealValues(x + i, y + ii, currentData)
+
+        return input_region, state_region
+
+    def FindRealValues(self, x, y, state):
+        if 0 <= x < self.State.shape[0] and 0 <= y < self.State.shape[1]:
+            if state is not None:
+                return state[x, y]
+            return self.Input[x, y]
+        if self.Boundary == BoundaryTypes.CONSTANT:
+            return self.BoundValue
+        if self.Boundary == BoundaryTypes.ZERO_FLUX:
+            if x < 0:
+                x = 0
+            elif x > self.State.shape[0] - 1:
+                x = self.State.shape[0] - 1
+
+            if y < 0:
+                y = 0
+            elif y > self.State.shape[1] - 1:
+                y = self.State.shape[1] - 1
+
+            if state is not None:
+                return state[x, y]
+            return self.Input[x, y]
+        if self.Boundary == BoundaryTypes.PERIODIC:
+            if x < 0:
+                x += self.State.shape[0]
+            elif x > self.State.shape[0] - 1:
+                x -= self.State.shape[0]
+
+            if y < 0:
+                y += self.State.shape[1]
+            elif y > self.State.shape[1] - 1:
+                y -= self.State.shape[1]
+
+            if state is not None:
+                return state[x, y]
+            return self.Input[x, y]
+
+        raise Exception("Unknown location or boundary method")
