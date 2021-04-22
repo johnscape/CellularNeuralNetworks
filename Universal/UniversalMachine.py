@@ -1,3 +1,15 @@
-class CNN_UM:
+class ExtendedCell:
     def __init__(self):
-        self.temp = None
+        self.LocalAnalogMemory = []
+        self.LocalLogicMemory = []
+        self.LocalAnalogOutputUnit = []
+        self.LocalLogicUnit = []
+        self.LocalCommunicationControlUnit = []
+
+
+class CNN_UM:
+    def __init__(self, size):
+        self.GlobalAnalogProgrammingUnit = []
+        self.Cells = []
+        for i in range(size * size):
+            self.Cells.append(ExtendedCell())
