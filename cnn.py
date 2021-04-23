@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from enum import Enum
+import tensorflow as tf
 
 
 class BoundaryTypes(Enum):
@@ -20,19 +21,29 @@ def CellToImage(cell):
 
 
 def StandardCNNNonlinearity(x):
-    back = x
-    back[x < -1] = -1
-    back[x > 1] = 1
-    return back
+    return tf.clip_by_value(x, -1, 1)
+
+
+def TensorToNumpy(tensor):
+    init_g = tf.global_variables_initializer()
+    init_l = tf.local_variables_initializer()
+    with tf.Session() as sess:
+        sess.run(init_g)
+        sess.run(init_l)
+        arr = sess.run(tensor)
+        return arr.astype(np.float)
 
 
 class CellularNetwork:
     def __init__(self):
         self.Input = []
         self.State = []
-        self.A = np.zeros((3, 3))
-        self.B = np.zeros((3, 3))
-        self.Z = 0
+
+        initializer = tf.initializers.glorot_uniform()
+
+        self.A = tf.Variable(initializer([3, 3, 1, 1]), dtype=tf.float32)
+        self.B = tf.Variable(initializer([3, 3, 1, 1]), dtype=tf.float32)
+        self.Z = tf.Variable(initializer([1]), dtype=tf.float32)
         self.SimTime = 1
         self.TimeStep = 0.1
         self.OutputNonlin = StandardCNNNonlinearity
@@ -40,7 +51,7 @@ class CellularNetwork:
         self.BoundValue = 0
 
     def GetOutput(self):
-        return self.Output
+        return self.State
 
     def SetTimeStep(self, Ts):
         self.TimeStep = Ts
@@ -53,32 +64,34 @@ class CellularNetwork:
             img = ImageToCell(cv2.cvtColor(cv2.imread(In), cv2.COLOR_BGR2GRAY))
         else:
             img = In
-        self.Input = img
+        self.Input = tf.constant(img, dtype=tf.float32)
+        self.Input = tf.reshape(self.Input, [1, self.Input.shape[0], self.Input.shape[1], 1])
 
     def SetState(self, St):
         if isinstance(St, str):
             img = ImageToCell(cv2.cvtColor(cv2.imread(St), cv2.COLOR_BGR2GRAY))
         else:
             img = St
-        self.State = img
+        self.State = tf.Variable(img, dtype=tf.float32)
+        self.State = tf.reshape(self.State, [1, self.State.shape[0], self.State.shape[1], 1])
 
     def SetZ(self, z):
         self.SetBias(z)
 
     def SetBias(self, z):
-        self.Z = z
+        self.Z = tf.constant(z, dtype=tf.float32)
 
     def SetA(self, a):
         self.SetATemplate(a)
 
     def SetATemplate(self, a):
-        self.A = a
+        self.A = tf.reshape(tf.Variable(a, dtype=tf.float32), [3, 3, 1, 1])
 
     def SetB(self, a):
         self.SetBTemplate(a)
 
     def SetBTemplate(self, b):
-        self.B = b
+        self.B = tf.reshape(tf.Variable(b, dtype=tf.float32), [3, 3, 1, 1])
 
     def Euler(self, f, y0, StartTime, EndTime, h):
         t, y = StartTime, y0
@@ -88,17 +101,14 @@ class CellularNetwork:
         return y
 
     def Simulate(self):
-        self.Input = self.Input.astype(np.float64)
-        self.State = self.State.astype(np.float64)
-        Ret = self.Euler(self.cell_equation, self.State.flatten(), 0, self.SimTime, 0.1)
-        SizeX = self.State.shape[0]
-        SizeY = self.State.shape[1]
-        OutImg = self.OutputNonlin(np.reshape(Ret, [SizeX, SizeY]))
+        # self.Input = self.Input.astype(np.float64)
+        # self.State = self.State.astype(np.float64)
+        Ret = self.CellEquation(self.SimTime / self.TimeStep)
+        Ret = self.OutputNonlin(Ret)
+        return TensorToNumpy(Ret[0, :, :, 0])
 
-        return OutImg
-
-    def cell_equation(self, t, X):
-        SizeX = self.State.shape[0]
+    def CellEquation(self, t):
+        '''SizeX = self.State.shape[0]
         SizeY = self.State.shape[1]
         x = np.reshape(X, [SizeX, SizeY])
 
@@ -114,7 +124,26 @@ class CellularNetwork:
                 dx[a, b] = -x[a, b] + AY + BU + self.Z
         dx = np.reshape(dx, [SizeX * SizeY])
 
-        return dx
+        return dx'''
+
+        '''AY = tf.nn.conv2d(y, self.A, strides=[1, 1, 1, 1], padding="SAME")
+        BU = tf.nn.conv2d(self.Input, self.B, strides=[1, 1, 1, 1], padding="SAME")
+
+        dx = -y + AY + BU + self.Z
+        return dx'''
+
+        BU = tf.nn.conv2d(self.Input, self.B, strides=[1, 1, 1, 1], padding='SAME')
+        BU += self.Z
+
+        time_step = tf.constant(self.TimeStep, dtype=tf.float32)
+
+        for time in range(int(t)):
+            self.State = self.OutputNonlin(self.State)
+            AY = tf.nn.conv2d(self.State, self.A, strides=[1, 1, 1, 1], padding='SAME')
+            dx = -self.State + AY + BU
+
+            self.State += dx * time_step
+        return self.State
 
     def FindActiveRegions(self, x, y, currentData):
         input_region = np.zeros((3, 3))
