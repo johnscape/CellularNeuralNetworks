@@ -10,6 +10,21 @@ class BoundaryTypes(Enum):
     PERIODIC = 2
 
 
+def ComputeLoss(expected, output):
+    return tf.reduce_mean(tf.abs(expected - output))
+
+
+def TrainingStep(model, optimizer, expected):
+    with tf.GradientTape() as tape:
+        model_out = model.CellEquation(False)
+        loss = ComputeLoss(expected, model_out)
+
+        gradients = tape.gradient(loss, [model.A, model.B, model.Z])
+        optimizer.apply_gradients(zip(gradients, [model.A, model.B, model.Z]))
+
+        return loss
+
+
 def ImageToCell(image):
     image = (-1) * ((image.astype(np.float)) / 127.5 - 1.0)
     return image
@@ -93,106 +108,25 @@ class CellularNetwork:
     def SetBTemplate(self, b):
         self.B = tf.reshape(tf.Variable(b, dtype=tf.float32), [3, 3, 1, 1])
 
-    def Euler(self, f, y0, StartTime, EndTime, h):
-        t, y = StartTime, y0
-        while t <= EndTime:
-            t += h
-            y += h * f(t, y)
-        return y
+    def Simulate(self, toNumpy=True):
+        Ret = self.OutputNonlin(self.CellEquation())
+        if toNumpy:
+            return TensorToNumpy(Ret[0, :, :, 0])
+        else:
+            return Ret
 
-    def Simulate(self):
-        # self.Input = self.Input.astype(np.float64)
-        # self.State = self.State.astype(np.float64)
-        Ret = self.CellEquation(self.SimTime / self.TimeStep)
-        Ret = self.OutputNonlin(Ret)
-        return TensorToNumpy(Ret[0, :, :, 0])
-
-    def CellEquation(self, t):
-        '''SizeX = self.State.shape[0]
-        SizeY = self.State.shape[1]
-        x = np.reshape(X, [SizeX, SizeY])
-
-        dx = np.zeros((SizeX, SizeY))
-
-        for a in range(SizeX):
-            for b in range(SizeY):
-                input_region, state_region = self.FindActiveRegions(a, b, x)
-
-                y = self.OutputNonlin(state_region)
-                AY = np.sum(np.multiply(self.A, y))
-                BU = np.sum(np.multiply(self.B, input_region))
-                dx[a, b] = -x[a, b] + AY + BU + self.Z
-        dx = np.reshape(dx, [SizeX * SizeY])
-
-        return dx'''
-
-        '''AY = tf.nn.conv2d(y, self.A, strides=[1, 1, 1, 1], padding="SAME")
-        BU = tf.nn.conv2d(self.Input, self.B, strides=[1, 1, 1, 1], padding="SAME")
-
-        dx = -y + AY + BU + self.Z
-        return dx'''
-
+    def CellEquation(self):  # TODO: implement different padding methods
         BU = tf.nn.conv2d(self.Input, self.B, strides=[1, 1, 1, 1], padding='SAME')
         BU += self.Z
 
         time_step = tf.constant(self.TimeStep, dtype=tf.float32)
 
-        for time in range(int(t)):
+        current_time = 0
+        while current_time < self.SimTime:
             self.State = self.OutputNonlin(self.State)
             AY = tf.nn.conv2d(self.State, self.A, strides=[1, 1, 1, 1], padding='SAME')
             dx = -self.State + AY + BU
 
             self.State += dx * time_step
+            current_time += self.TimeStep
         return self.State
-
-    def FindActiveRegions(self, x, y, currentData):
-        input_region = np.zeros((3, 3))
-        state_region = np.zeros((3, 3))
-        if 0 < x < self.State.shape[0] - 1 and 0 < y < self.State.shape[1] - 1:
-            input_region = self.Input[x - 1:x + 2, y - 1:y + 2]
-            state_region = currentData[x - 1:x + 2, y - 1:y + 2]
-        else:
-            for i in range(-1, 2):
-                for ii in range(-1, 2):
-                    input_region[i + 1, ii + 1] = self.FindRealValues(x + i, y + ii, None)
-                    state_region[i + 1, ii + 1] = self.FindRealValues(x + i, y + ii, currentData)
-
-        return input_region, state_region
-
-    def FindRealValues(self, x, y, state):
-        if 0 <= x < self.State.shape[0] and 0 <= y < self.State.shape[1]:
-            if state is not None:
-                return state[x, y]
-            return self.Input[x, y]
-        if self.Boundary == BoundaryTypes.CONSTANT:
-            return self.BoundValue
-        if self.Boundary == BoundaryTypes.ZERO_FLUX:
-            if x < 0:
-                x = 0
-            elif x > self.State.shape[0] - 1:
-                x = self.State.shape[0] - 1
-
-            if y < 0:
-                y = 0
-            elif y > self.State.shape[1] - 1:
-                y = self.State.shape[1] - 1
-
-            if state is not None:
-                return state[x, y]
-            return self.Input[x, y]
-        if self.Boundary == BoundaryTypes.PERIODIC:
-            if x < 0:
-                x += self.State.shape[0]
-            elif x > self.State.shape[0] - 1:
-                x -= self.State.shape[0]
-
-            if y < 0:
-                y += self.State.shape[1]
-            elif y > self.State.shape[1] - 1:
-                y -= self.State.shape[1]
-
-            if state is not None:
-                return state[x, y]
-            return self.Input[x, y]
-
-        raise Exception("Unknown location or boundary method")
