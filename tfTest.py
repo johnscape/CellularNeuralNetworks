@@ -1,26 +1,15 @@
-import numpy as np
-import cv2
-from enum import Enum
+'''from enum import Enum
 import tensorflow as tf
-
+import cv2
+from cnn import ImageToCell
+import numpy as np
 
 class BoundaryTypes(Enum):
     CONSTANT = 0,
     ZERO_FLUX = 1,
     PERIODIC = 2
 
-
-def ImageToCell(image):
-    image = (-1) * ((image.astype(np.float)) / 127.5 - 1.0)
-    return image
-
-
-def CellToImage(cell):
-    cell = ((cell * -1) + 1.0) * 127.5
-    return cell.astype(np.uint8)
-
-
-class CellularNetwork:
+class MockCNN:
     def __init__(self):
         initializer = tf.initializers.glorot_uniform()
         self.B = tf.Variable(initializer([3, 3, 1, 1]), dtype=tf.float32)
@@ -50,25 +39,18 @@ class CellularNetwork:
     def SetInput(self, In):
         if isinstance(In, str):
             tempImg = ImageToCell(cv2.cvtColor(cv2.imread(In), cv2.COLOR_BGR2GRAY))
-            tempImg = np.reshape(tempImg, [1, tempImg.shape[0], tempImg.shape[1], 1])
         else:
             tempImg = In
-
-        if self.Input is None:
-            self.Input = tf.Variable(tempImg, dtype=tf.float32)
-        else:
-            self.Input.assign(tempImg, dtype=tf.float32)
+        tempImg = np.reshape(tempImg, [1, tempImg.shape[0], tempImg.shape[1], 1])
+        self.Input = tf.constant(tempImg, dtype=tf.float32)
 
     def SetState(self, St):
         if isinstance(St, str):
             tempImg = ImageToCell(cv2.cvtColor(cv2.imread(St), cv2.COLOR_BGR2GRAY))
-            tempImg = np.reshape(tempImg, [1, tempImg.shape[0], tempImg.shape[1], 1])
         else:
             tempImg = St
-        if self.State is None:
-            self.State = tf.Variable(tempImg, dtype=tf.float32)
-        else:
-            self.State.assign(tempImg, dtype=tf.float32)
+        tempImg = np.reshape(tempImg, [1, tempImg.shape[0], tempImg.shape[1], 1])
+        self.State = tf.constant(tempImg, dtype=tf.float32)
 
     def SetZ(self, z):
         self.SetBias(z)
@@ -88,10 +70,10 @@ class CellularNetwork:
     def SetBTemplate(self, b):
         self.B = tf.reshape(tf.Variable(b, dtype=tf.float32), [3, 3, 1, 1])
 
-    def Simulate(self, toNumpy=True):
+    def Simulate(self):
         return self.CellEquation()
 
-    def CellEquation(self):  # TODO: implement different padding methods
+    def CellEquation(self):
         BU = tf.nn.conv2d(self.Input, self.B, strides=[1, 1, 1, 1], padding='SAME')
         BU = BU + self.Z
 
@@ -106,16 +88,40 @@ class CellularNetwork:
 
 
 @tf.function
-def ComputeLoss(expectedOutput, modelOutput):
-    return tf.reduce_mean(tf.abs(expectedOutput - modelOutput))
+def compute_loss(exp_out, modelout):
+    return tf.reduce_mean(tf.abs(exp_out - modelout))
 
 
 @tf.function
-def TrainingStep(model: CellularNetwork, exp_out):
+def TrainingStep(model: MockCNN, exp_out):
     with tf.GradientTape() as tape:
         model_out = model.Simulate()
-        loss = ComputeLoss(exp_out, model_out)
+        loss = compute_loss(exp_out, model_out)
 
     grads = tape.gradient(loss, [model.A, model.B, model.Z])
     model.Optimizer.apply_gradients(zip(grads, [model.A, model.B, model.Z]))
     return loss
+
+### TESTING STARTS HERE
+
+img = cv2.imread('images/avergra2.png')
+img = ImageToCell(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+
+bimg = np.reshape(img, [1, img.shape[0], img.shape[1], 1])
+
+x0 = tf.constant(bimg, dtype=tf.float32)
+U = tf.constant(bimg, dtype=tf.float32)
+
+mcnn = MockCNN()
+mcnn.SetInput("images/avergra2.png")
+mcnn.SetState("images/avergra2.png")
+
+expout = np.load('ExpectedOutput.npy')
+expected_output = np.reshape(expout, [1, img.shape[0], img.shape[1], 1])
+optimizer = tf.optimizers.Adam(0.1)
+
+for i in range(1000):
+    loss = TrainingStep(mcnn, expected_output)
+    if i % 100 == 0:
+        print(loss)
+'''
