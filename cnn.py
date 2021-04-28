@@ -1,7 +1,11 @@
 import numpy as np
 import cv2
 from enum import Enum
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import tensorflow as tf
+from os.path import exists
 
 
 class BoundaryTypes(Enum):
@@ -132,10 +136,13 @@ class CellularNetwork:
         np.savez(filename, TemplateA=A, TemplateB=B, bias=Z, score=self.ModelBestLoss)
 
     def LoadNetwork(self, file):
+        if not exists(file):
+            print(file + " cannot be opened, skipping...")
+            return
         data = np.load(file)
         a = data["TemplateA"]
         b = data["TemplateB"]
-        z = data["bias"]
+        z = data["bias"][0]
         l = data["score"]
 
         self.SetA(a)
@@ -159,4 +166,5 @@ def TrainingWrapper():
         grads = tape.gradient(loss, [model.A, model.B, model.Z])
         model.Optimizer.apply_gradients(zip(grads, [model.A, model.B, model.Z]))
         return loss
+
     return TrainingStep

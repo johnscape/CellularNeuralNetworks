@@ -1,7 +1,8 @@
 from dataset import CreateDataset
 from cnn import CellularNetwork
+from testing import CreateNormalFromRGB
 
-from project.training import StartTraining
+from training import StartTraining
 
 
 def CreateModel(file=None):
@@ -16,8 +17,9 @@ def CreateModel(file=None):
 
 
 CreateDataset()
-red_model = CreateModel("red_network")
-green_model = CreateModel("green_network")
-blue_model = CreateModel("blue_network")
+red_model = CreateModel("red_network.npz")
+green_model = CreateModel("green_network.npz")
+blue_model = CreateModel("blue_network.npz")
 base_model = CreateModel()
-StartTraining([red_model, green_model, blue_model], [False, False, False], 1000, 100)
+StartTraining([red_model, green_model, blue_model], [True, False, True], 10000, 100)
+CreateNormalFromRGB([red_model, green_model, blue_model])

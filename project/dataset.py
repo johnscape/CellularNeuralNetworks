@@ -98,3 +98,25 @@ def GetRandomTrainingImages(max_count):
     rgb_img = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2RGB)
     normal_img = cv2.cvtColor(normal_img, cv2.COLOR_BGR2RGB)
     return rgb_img, normal_img
+
+
+def GetSeperatedTestRGB(target_size=32):
+    test_files = [f for f in listdir(input_testing_path) if isfile(join(input_testing_path, f))]
+    random_file = join(input_testing_path, random.choice(test_files))
+
+    img = cv2.imread(random_file)
+    if img is None:
+        raise ValueError("Cannot open " + random_file)
+
+    parts = []
+    x = 0
+    while x < img.shape[0]:
+        y = 0
+        while y < img.shape[1]:
+            part = img[x:x+target_size, y:y+target_size, :]
+            parts.append(part)
+
+            y += target_size
+        x += target_size
+
+    return parts, img.shape

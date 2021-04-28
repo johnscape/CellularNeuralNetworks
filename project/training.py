@@ -3,48 +3,16 @@ from typing import List
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm, trange
 
 from cnn import CellularNetwork, TrainingWrapper, ImageToCell
-from project.dataset import GetRandomTrainingImages
+from dataset import GetRandomTrainingImages
 
 
 def StartTraining(models: List[CellularNetwork], skips: List[bool], iterations=1000, consoleInfo=100):
-    red_loss = None
-    green_loss = None
-    blue_loss = None
-
-    if not skips[0]:
-        print("Training red model...")
-        red_loss = TrainModel(models[0], 0, iterations, consoleInfo)
-        red_avg = sum(red_loss) / len(red_loss)
-        if models[0].ModelBestLoss > red_avg:
-            print("Model was performing better: " + str(models[0].ModelBestLoss) + " to " + str(red_avg))
-            models[0].ModelBestLoss = red_avg
-            models[0].SaveNetwork("red_network")
-    else:
-        print("Skipping red model.")
-
-    if not skips[1]:
-        print("Training green model...")
-        green_loss = TrainModel(models[1], 1, iterations, consoleInfo)
-        green_avg = sum(green_loss) / len(green_loss)
-        if models[1].ModelBestLoss > green_avg:
-            print("Model was performing better: " + str(models[1].ModelBestLoss) + " to " + str(green_avg))
-            models[1].ModelBestLoss = green_avg
-            models[1].SaveNetwork("green_network")
-    else:
-        print("Skipping green model")
-
-    if not skips[2]:
-        print("Training blue model...")
-        blue_loss = TrainModel(models[2], 2, iterations, consoleInfo)
-        blue_avg = sum(blue_loss) / len(blue_loss)
-        if models[2].ModelBestLoss > blue_avg:
-            print("Model was performing better: " + str(models[2].ModelBestLoss) + " to " + str(blue_avg))
-            models[2].ModelBestLoss = blue_avg
-            models[2].SaveNetwork("blue_network")
-    else:
-        print("Skipping blue model")
+    red_loss = ModelStep(models[0], iterations, consoleInfo, 0, skips[0])
+    green_loss = ModelStep(models[1], iterations, consoleInfo, 1, skips[1])
+    blue_loss = ModelStep(models[2], iterations, consoleInfo, 2, skips[2])
     print("Training finished!")
 
     if red_loss is not None:
@@ -56,20 +24,69 @@ def StartTraining(models: List[CellularNetwork], skips: List[bool], iterations=1
     plt.show()
 
 
-def TrainModel(model: CellularNetwork, color: int, iterations=1000, consoleInfo=100):
+def ModelStep(model: CellularNetwork, iterations: int, consoleInfo: int, color: int, skipping=False):
+    trainingText = "Training "
+    fileName = "_network"
+    skippingText = "Skipping "
+
+    if color == 0:
+        trainingText += "red model..."
+        fileName = "red" + fileName
+        skippingText += "red model."
+    elif color == 1:
+        trainingText += "green model..."
+        fileName = "green" + fileName
+        skippingText += "green model."
+    else:
+        trainingText += "blue model..."
+        fileName = "blue" + fileName
+        skippingText += "blue model."
+
+    loss = None
+    if not skipping:
+        print(trainingText)
+        loss = TrainModel(model, color, iterations, consoleInfo)
+        avg = sum(loss) / len(loss)
+        if model.ModelBestLoss > avg:
+            print("Model was performing better: " + str(model.ModelBestLoss) + " to " + str(avg))
+            model.ModelBestLoss = avg
+            model.SaveNetwork(fileName)
+    else:
+        print(skippingText)
+    return loss
+
+
+def TrainModel(model: CellularNetwork, color: int, iterations=1000, consoleInfo=100, imageSize=32):
     training_function = TrainingWrapper()
     losses = []
-
-    for i in range(iterations):
+    barText = ""
+    if color == 0:
+        barText = "Training red network"
+    elif color == 1:
+        barText = "Training green network"
+    else:
+        barText = "Training blue network"
+    tr = trange(iterations, desc=barText, leave=True)
+    count = 0
+    for i in tr:
         inp, exp = GetRandomTrainingImages(130000)
-        inp = ImageToCell(np.reshape(cv2.cvtColor(inp, cv2.COLOR_RGB2GRAY), [1, 32, 32, 1])).astype('float32')
-        exp = ImageToCell(np.reshape(exp[:, :, color], [1, 32, 32, 1])).astype('float32')
+        inp = ImageToCell(
+            np.reshape(cv2.cvtColor(inp, cv2.COLOR_RGB2GRAY), [1, imageSize, imageSize, 1])
+        ).astype('float32')
+
+        exp = ImageToCell(
+            np.reshape(exp[:, :, color], [1, imageSize, imageSize, 1])
+        ).astype('float32')
 
         model.SetInputAndState(inp, inp)
 
         last_loss = training_function(model, exp).numpy()
         losses.append(last_loss)
-        if i % consoleInfo == 0 and consoleInfo != 0:
-            print("Loss at iteration " + str(i) + ": " + str(last_loss))
+        if count % consoleInfo == 0 and consoleInfo != 0:
+            newText = barText + ", loss at " + str(count) + ": " + str(last_loss)
+            tr.set_description(newText)
+            tr.refresh()
+
+        count += 1
 
     return losses
