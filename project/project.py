@@ -16,10 +16,12 @@ def CreateModel(file=None):
     return cnn
 
 
-CreateDataset()
+targeted_size = 32
+
+CreateDataset(targetSize=targeted_size, clearIfExists=False)
 red_model = CreateModel("red_network.npz")
 green_model = CreateModel("green_network.npz")
 blue_model = CreateModel("blue_network.npz")
 base_model = CreateModel()
-StartTraining([red_model, green_model, blue_model], [True, False, True], 10000, 100)
-CreateNormalFromRGB([red_model, green_model, blue_model])
+StartTraining([red_model, green_model, blue_model], [True, False, True], 10000, 100, targeted_size)
+CreateNormalFromRGB([red_model, green_model, blue_model], targeted_size)

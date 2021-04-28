@@ -9,10 +9,10 @@ from cnn import CellularNetwork, TrainingWrapper, ImageToCell
 from dataset import GetRandomTrainingImages
 
 
-def StartTraining(models: List[CellularNetwork], skips: List[bool], iterations=1000, consoleInfo=100):
-    red_loss = ModelStep(models[0], iterations, consoleInfo, 0, skips[0])
-    green_loss = ModelStep(models[1], iterations, consoleInfo, 1, skips[1])
-    blue_loss = ModelStep(models[2], iterations, consoleInfo, 2, skips[2])
+def StartTraining(models: List[CellularNetwork], skips: List[bool], iterations=1000, consoleInfo=100, size=32):
+    red_loss = ModelStep(models[0], iterations, consoleInfo, 0, skips[0], size)
+    green_loss = ModelStep(models[1], iterations, consoleInfo, 1, skips[1], size)
+    blue_loss = ModelStep(models[2], iterations, consoleInfo, 2, skips[2], size)
     print("Training finished!")
 
     if red_loss is not None:
@@ -24,7 +24,7 @@ def StartTraining(models: List[CellularNetwork], skips: List[bool], iterations=1
     plt.show()
 
 
-def ModelStep(model: CellularNetwork, iterations: int, consoleInfo: int, color: int, skipping=False):
+def ModelStep(model: CellularNetwork, iterations: int, consoleInfo: int, color: int, skipping=False, imgSize=32):
     trainingText = "Training "
     fileName = "_network"
     skippingText = "Skipping "
@@ -45,7 +45,7 @@ def ModelStep(model: CellularNetwork, iterations: int, consoleInfo: int, color: 
     loss = None
     if not skipping:
         print(trainingText)
-        loss = TrainModel(model, color, iterations, consoleInfo)
+        loss = TrainModel(model, color, iterations, consoleInfo, imgSize)
         avg = sum(loss) / len(loss)
         if model.ModelBestLoss > avg:
             print("Model was performing better: " + str(model.ModelBestLoss) + " to " + str(avg))
