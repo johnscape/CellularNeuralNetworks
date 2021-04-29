@@ -9,6 +9,7 @@ from dataset import GetSeperatedTestRGB
 
 
 def CreateNormalFromRGB(models: List[CellularNetwork], imageSize=32):
+    print("Creating test normal image...")
     imgs, shape = GetSeperatedTestRGB(imageSize)
 
     normals = []
@@ -49,3 +50,4 @@ def CreateNormalFromRGB(models: List[CellularNetwork], imageSize=32):
             fullPicture = np.concatenate((fullPicture, rowImage), axis=0)
 
     cv2.imwrite("final_normal.png", fullPicture)
+    print("Normal image created and saved as final_normal.png!")
