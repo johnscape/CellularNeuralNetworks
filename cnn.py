@@ -115,15 +115,57 @@ class CellularNetwork:
             return val.numpy()
         return val
 
-    def CellEquation(self):  # TODO: implement different padding methods
-        BU = tf.nn.conv2d(self.Input, self.B, strides=[1, 1, 1, 1], padding='SAME')
+    def CellEquation(self):
+        padded_input = self.Input
+        padded_state = self.State
+
+        if self.Boundary == BoundaryTypes.CONSTANT:
+            padded_input = tf.pad(
+                padded_input,
+                [[0, 0], [1, 1], [1, 1], [0, 0]],
+                "CONSTANT",
+                constant_values=self.BoundValue
+            )
+
+            padded_state = tf.pad(
+                padded_state,
+                [[0, 0], [1, 1], [1, 1], [0, 0]],
+                "CONSTANT",
+                constant_values=self.BoundValue
+            )
+        elif self.Boundary == BoundaryTypes.ZERO_FLUX:
+            padded_input = tf.pad(
+                padded_input,
+                [[0, 0], [1, 1], [1, 1], [0, 0]],
+                "SYMMETRIC"
+            )
+
+            padded_state = tf.pad(
+                padded_state,
+                [[0, 0], [1, 1], [1, 1], [0, 0]],
+                "SYMMETRIC"
+            )
+        elif self.Boundary == BoundaryTypes.PERIODIC:
+            padded_input = tf.pad(
+                padded_input,
+                [[0, 0], [1, 1], [1, 1], [0, 0]],
+                "REFLECT"
+            )
+
+            padded_state = tf.pad(
+                padded_state,
+                [[0, 0], [1, 1], [1, 1], [0, 0]],
+                "REFLECT"
+            )
+
+        BU = tf.nn.conv2d(padded_input, self.B, strides=[1, 1, 1, 1], padding='VALID')
         BU = BU + self.Z
 
-        x = self.State
+        x = padded_state
         iterations = int(self.SimTime / self.TimeStep)
         for it in range(iterations):
             y = tf.maximum(tf.minimum(x, 1), -1)
-            AY = tf.nn.conv2d(y, self.A, strides=[1, 1, 1, 1], padding='SAME')  # VALID, SAME
+            AY = tf.nn.conv2d(y, self.A, strides=[1, 1, 1, 1], padding='VALID')  # VALID, SAME
             x = x + self.TimeStep * (-1 * x + BU + AY)
         out = tf.maximum(tf.minimum(x, 1), -1)
         return out
