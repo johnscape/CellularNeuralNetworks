@@ -5,7 +5,13 @@ from testing import CreateNormalFromRGB
 from training import StartTraining
 
 
-def CreateModel(file=None):
+def CreateModel(file=None) -> CellularNetwork:
+    """
+    Creates a Cellular Neural Network, with the parameters defined in the documentation
+    @param file: The file to load the existing template values from. If set to None,
+    the template will be randomly generated
+    @return: The CNN created to generate normal maps.
+    """
     cnn = CellularNetwork()
     cnn.SetSimTime(100)
     cnn.SetTimeStep(0.1)
