@@ -99,7 +99,7 @@ def TrainModel(model: CellularNetwork, color: int, iterations=1000, consoleInfo=
     tr = trange(iterations, desc=barText, leave=True)
     count = 0
     for i in tr:
-        inp, exp = GetRandomTrainingImages(130000)
+        inp, exp = GetRandomTrainingImages(10000)  # TODO: read the number of images once, this could cause an error
         inp = ImageToCell(
             np.reshape(cv2.cvtColor(inp, cv2.COLOR_RGB2GRAY), [1, imageSize, imageSize, 1])
         ).astype('float32')

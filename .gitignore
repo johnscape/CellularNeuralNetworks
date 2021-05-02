@@ -1,1 +1,3 @@
 images/hf/*
+dataset/training/input/*
+dataset/training/expected/*
