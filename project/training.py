@@ -10,6 +10,17 @@ from dataset import GetRandomTrainingImages
 
 
 def StartTraining(models: List[CellularNetwork], skips: List[bool], iterations=1000, consoleInfo=100, size=32):
+    """
+    Use this function to train your models.
+    @param models: A list of three models in the following order:
+    The model for the red channel, for the green and for the blue
+    @param skips: A list of three bools. If any bool is True, the corresponding model's training will be skipped.
+    Useful if you have already trained one or more models.
+    @param iterations: How many images will be shown to each model.
+    @param consoleInfo: At every consoleInfo-th iteration, a message will be displayed on the console with the
+    latest loss value.
+    @param size: The size of the training images.
+    """
     red_loss = ModelStep(models[0], iterations, consoleInfo, 0, skips[0], size)
     green_loss = ModelStep(models[1], iterations, consoleInfo, 1, skips[1], size)
     blue_loss = ModelStep(models[2], iterations, consoleInfo, 2, skips[2], size)
@@ -25,6 +36,16 @@ def StartTraining(models: List[CellularNetwork], skips: List[bool], iterations=1
 
 
 def ModelStep(model: CellularNetwork, iterations: int, consoleInfo: int, color: int, skipping=False, imgSize=32):
+    """
+    An intermediate function for a more understandable code. Use StartTraining instead of this.
+    @param model: The model to train.
+    @param iterations: The images to show to the model.
+    @param consoleInfo: The frequency of printing information to the console.
+    @param color: The model's color channel (0 - red, 1 - green, 2 - blue)
+    @param skipping: If set to True, training will be skipped
+    @param imgSize: The size of the training images
+    @return: None
+    """
     trainingText = "Training "
     fileName = "_network"
     skippingText = "Skipping "
@@ -57,6 +78,15 @@ def ModelStep(model: CellularNetwork, iterations: int, consoleInfo: int, color: 
 
 
 def TrainModel(model: CellularNetwork, color: int, iterations=1000, consoleInfo=100, imageSize=32):
+    """
+    This function handles model training. Use StartTraining instead of this.
+    @param model: The model to train.
+    @param color: The model's color channel (0 - red, 1 - green, 2 - blue)
+    @param iterations: The images to show to the model.
+    @param consoleInfo: The frequency of printing information to the console.
+    @param imageSize: The size of the training images.
+    @return: None
+    """
     training_function = TrainingWrapper()
     losses = []
     barText = ""

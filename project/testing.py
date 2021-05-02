@@ -5,12 +5,18 @@ import numpy as np
 from tqdm import tqdm
 
 from cnn import CellularNetwork, ImageToCell, CellToImage
-from dataset import GetSeperatedTestRGB
+from dataset import GetSeparatedTestRGB
 
 
-def CreateNormalFromRGB(models: List[CellularNetwork], imageSize=32):
+def CreateNormalFromRGB(models: List[CellularNetwork], outputFile="final_normal.png", imageSize=32):
+    """
+    Creates a normal texture for a randomly selected image in the testing folder.
+    @param models: The three models for each color channel
+    @param outputFile: The path to save the output file.
+    @param imageSize: The size of the training images.
+    """
     print("Creating test normal image...")
-    imgs, shape = GetSeperatedTestRGB(imageSize)
+    imgs, shape = GetSeparatedTestRGB(imageSize)
 
     normals = []
     for img in tqdm(range(len(imgs))):
@@ -49,5 +55,5 @@ def CreateNormalFromRGB(models: List[CellularNetwork], imageSize=32):
         else:
             fullPicture = np.concatenate((fullPicture, rowImage), axis=0)
 
-    cv2.imwrite("final_normal.png", fullPicture)
+    cv2.imwrite(outputFile, fullPicture)
     print("Normal image created and saved as final_normal.png!")
